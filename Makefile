@@ -9,7 +9,7 @@ C_INCLUDE_FLAGS=-I$(HOME)/local/include
 all: $(BINS)
 
 bspmm_single: bspmm_single.c $(BSPMM_COMMON_SRC)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(C_INCLUDE_FLAGS)
 
 clean:
 	rm -f $(BINS)
