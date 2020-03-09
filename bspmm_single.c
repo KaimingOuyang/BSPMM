@@ -277,7 +277,7 @@ int main(int argc, char **argv)
         }
         
         /* compute Cij += Aik * Bkj */
-        dgemm(local_a, local_b, local_c, tile_dim);
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tile_dim, tile_dim, tile_dim, 1.0, local_a, tile_dim, local_b, tile_dim, 1.0, local_c, tile_dim);
     
     } while (work_id < work_units);
 
@@ -330,6 +330,7 @@ int main(int argc, char **argv)
 #else
     t1 = MPI_Wtime();
 #endif
+    double total_time = MPI_Wtime();
     do {
         /* read and increment global counter atomically */
         MPI_Fetch_and_op(&one, &work_id, MPI_INT, 0, 0, MPI_SUM, win_counter);
@@ -366,13 +367,9 @@ int main(int argc, char **argv)
 #endif
             MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                            MPI_DOUBLE, MPI_SUM, win);
-#if FINE_TIME
-            t_accum += (MPI_Wtime() - t_start);
-            t_start = MPI_Wtime();
-#endif
             MPI_Win_flush(target_rank_c, win);
 #if FINE_TIME
-            t_accum_flush += (MPI_Wtime() - t_start);
+            t_accum += (MPI_Wtime() - t_start);
 #endif
             /* Reset the local C tile for local accumulation */
             memset(local_c, 0, tile_size);
@@ -445,7 +442,7 @@ int main(int argc, char **argv)
         }
 #if COMPUTE
         /* compute Cij += Aik * Bkj */
-        dgemm(local_a, local_b, local_c, tile_dim);
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tile_dim, tile_dim, tile_dim, 1.0, local_a, tile_dim, local_b, tile_dim, 1.0, local_c, tile_dim);
 #endif
     } while (work_id < work_units);
 
@@ -471,17 +468,14 @@ int main(int argc, char **argv)
 #endif
         MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                    MPI_DOUBLE, MPI_SUM, win);
-#if FINE_TIME
-        t_accum += (MPI_Wtime() - t_start);
-        t_start = MPI_Wtime();
-#endif
         MPI_Win_flush(target_rank_c, win);
 #if FINE_TIME
-        t_accum_flush += (MPI_Wtime() - t_start);
+        t_accum += (MPI_Wtime() - t_start);
 #endif
     }
  
     MPI_Barrier(MPI_COMM_WORLD);
+    total_time = MPI_Wtime() - total_time;
     //printf("Rank %d: sub_mat_c[0] is %.1f\n", rank, sub_mat_c[0]);
     //printf("Rank %d: sub_mat_c[1] is %.1f\n", rank, sub_mat_c[1]);
     //printf("Rank %d done!\n", rank);
@@ -601,16 +595,17 @@ int main(int argc, char **argv)
 #endif
 #if FINE_TIME
         /* Each of the times reported are per operation */
-        printf("mat_dim,tile_dim,work_units,nworkers,"
-                "min_get_time,max_get_time,mean_get_time,"
-                "min_accum_time,max_accum_time,mean_accum_time,"
-                "min_get_flush_time,max_get_flush_time,mean_get_flush_time,"
-                "min_accum_flush_time,max_accum_flush_time,mean_accum_flush_time\n");
-        printf("%d,%d,%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f\n", mat_dim, tile_dim, work_units, nprocs,
-                min_t_get, max_t_get, mean_t_get,
-                min_t_accum, max_t_accum, mean_t_accum,
-                min_t_get_flush, max_t_get_flush, mean_t_get_flush,
-                min_t_accum_flush, max_t_accum_flush, mean_t_accum_flush);
+        printf("%.6lf %.3lf\n", total_time, mean_t_accum * 1e6);
+        // printf("mat_dim,tile_dim,work_units,nworkers,"
+        //         "min_get_time,max_get_time,mean_get_time,"
+        //         "min_accum_time,max_accum_time,mean_accum_time,"
+        //         "min_get_flush_time,max_get_flush_time,mean_get_flush_time,"
+        //         "min_accum_flush_time,max_accum_flush_time,mean_accum_flush_time\n");
+        // printf("%d,%d,%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f\n", mat_dim, tile_dim, work_units, nprocs,
+        //         min_t_get, max_t_get, mean_t_get,
+        //         min_t_accum, max_t_accum, mean_t_accum,
+        //         min_t_get_flush, max_t_get_flush, mean_t_get_flush,
+        //         min_t_accum_flush, max_t_accum_flush, mean_t_accum_flush);
 #else
         /* This time is the time for the whole kernel i.e. the observed time by the end user of the application */
         printf("mat_dim,tile_dim,work_units,nworkers,time\n");
