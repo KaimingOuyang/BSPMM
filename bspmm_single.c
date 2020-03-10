@@ -595,7 +595,13 @@ int main(int argc, char **argv)
 #endif
 #if FINE_TIME
         /* Each of the times reported are per operation */
-        printf("%.6lf %.3lf\n", total_time, mean_t_accum * 1e6);
+        char *CSP_NG = getenv("CSP_NG");
+        int ghost;
+        if(CSP_NG)
+            ghost = atoi(CSP_NG);
+        else
+            ghost = 0;
+        printf("%d %.6lf %.3lf\n", ghost, total_time, mean_t_accum * 1e6);
         // printf("mat_dim,tile_dim,work_units,nworkers,"
         //         "min_get_time,max_get_time,mean_get_time,"
         //         "min_accum_time,max_accum_time,mean_accum_time,"
