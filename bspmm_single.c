@@ -228,11 +228,12 @@ int main(int argc, char **argv)
             /* MPI_Accumulate locally accumulated C before proceeding */
             int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
             MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);
-            
+#ifndef NO_ACC  
             /* accumulate tile C (always use MPI since we need to ensure atomicity during accumulation) */
             MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                            MPI_DOUBLE, MPI_SUM, win);
             MPI_Win_flush(target_rank_c, win);
+#endif
             
             /* Reset the local C tile for local accumulation */
             memset(local_c, 0, tile_size);
@@ -285,11 +286,12 @@ int main(int argc, char **argv)
         /* MPI_Accumulate locally accumulated C before finishing */
         int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
         MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);
-        
+#ifndef NO_ACC         
         /* accumulate tile C (always use MPI since we need to ensure atomicity during accumulation) */
         MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                    MPI_DOUBLE, MPI_SUM, win);
         MPI_Win_flush(target_rank_c, win);
+#endif
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -365,9 +367,11 @@ int main(int argc, char **argv)
             accum_counter++;
             t_start = MPI_Wtime();
 #endif
+#ifndef NO_ACC 
             MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                            MPI_DOUBLE, MPI_SUM, win);
             MPI_Win_flush(target_rank_c, win);
+#endif
 #if FINE_TIME
             t_accum += (MPI_Wtime() - t_start);
 #endif
@@ -466,9 +470,11 @@ int main(int argc, char **argv)
         accum_counter++;
         t_start = MPI_Wtime();
 #endif
+#ifndef NO_ACC 
         MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
                    MPI_DOUBLE, MPI_SUM, win);
         MPI_Win_flush(target_rank_c, win);
+#endif
 #if FINE_TIME
         t_accum += (MPI_Wtime() - t_start);
 #endif
