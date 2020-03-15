@@ -4,7 +4,7 @@
  */
 
 #include "bspmm.h"
-
+#include <assert.h>
 int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *tile_num_ptr, int *p_dim_ptr, int *node_dim_ptr, int *ppn_ptr)
 {
     int tile_dim, tile_num, p_dim, node_dim, ppn;
@@ -117,7 +117,7 @@ void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int
     int work_unit;
     int i, j, k;
 
-    max_work_units = (size_t) tile_num * tile_num * tile_num;
+    max_work_units = ((size_t) tile_num / 4  * tile_num / 4 * tile_num / 4) + ((size_t) tile_num / 16  * tile_num / 16 * tile_num / 16) * 2;
     
     /* A | B | C 
      * - | - | - 
@@ -134,6 +134,7 @@ void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int
                     tmp_table[3*work_unit + 1] = tile_map_b[k*tile_num + j] /* B */;
                     tmp_table[3*work_unit + 2] = tile_map_c[i*tile_num + j] /* C */;
                     work_unit++;
+                    assert(work_unit < max_work_units);
                 }
             }
         }
