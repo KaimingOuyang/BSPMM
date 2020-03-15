@@ -112,12 +112,12 @@ void init_mat_according_to_map(double *mat, size_t mat_dim)
 
 void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int tile_num, int **work_unit_table_ptr, int *work_units_ptr)
 {
-    int *tmp_table, *work_unit_table;
+    int *tmp_table;
     size_t max_work_units;
     int work_unit;
     int i, j, k;
 
-    max_work_units = ((size_t) tile_num / 4  * tile_num / 4 * tile_num / 4) + ((size_t) tile_num / 16  * tile_num / 16 * tile_num / 16) * 2;
+    max_work_units = ((size_t) tile_num / 2  * tile_num / 2 * tile_num / 2) + ((size_t) tile_num / 4  * tile_num / 4 * tile_num / 4) * 2 + 8;
     
     /* A | B | C 
      * - | - | - 
@@ -140,17 +140,17 @@ void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int
         }
     }
 
-    work_unit_table = calloc(work_unit * 3, sizeof(int));
+    // work_unit_table = tmp_table;
     /* Copy from tmp table into real table */
 #if DEBUG
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     if (rank ==0) printf("A\tB\tC\n");
 #endif
-    for (i = 0; i < work_unit; i++) {
-        work_unit_table[3*i + 0] = tmp_table[3*i + 0];
-        work_unit_table[3*i + 1] = tmp_table[3*i + 1];
-        work_unit_table[3*i + 2] = tmp_table[3*i + 2];
+    // for (i = 0; i < work_unit; i++) {
+    //     work_unit_table[3*i + 0] = tmp_table[3*i + 0];
+    //     work_unit_table[3*i + 1] = tmp_table[3*i + 1];
+    //     work_unit_table[3*i + 2] = tmp_table[3*i + 2];
 #if DEBUG
         if (rank == 0) {
             printf("%d\t", work_unit_table[3*i + 0]);
@@ -159,12 +159,12 @@ void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int
             printf("\n");
         }
 #endif
-    }
+    // }
 
     *(work_units_ptr) = work_unit;
-    *(work_unit_table_ptr) = work_unit_table;
+    *(work_unit_table_ptr) = tmp_table;
 
-    free(tmp_table);
+    // free(tmp_table);
 }
 
 void init_sub_mats(double *sub_mat_a, double *sub_mat_b, double *sub_mat_c, size_t sub_mat_elements)
