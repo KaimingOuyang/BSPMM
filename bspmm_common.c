@@ -9,9 +9,9 @@ int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *t
 {
     int tile_dim, tile_num, p_dim, node_dim, ppn;
 
-    if (argc != 6) {
+    if (argc != 3) {
         if (!rank) {
-            printf("usage: bspmm_mpi <tile-dim> <tile-num> <p-dim> <node-dim> <ppn>\n");
+            printf("usage: bspmm_mpi <tile-dim> <tile-num>\n");
             printf("\n");
             printf("tile-dim:   Number of elements (double) in one dimension of a tile.\n");
             printf("tile-num:   Number of tiles in one dimension of the global matrix.\n");
