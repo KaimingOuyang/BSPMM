@@ -98,23 +98,23 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
     /* argument checking and setting */
-    if (setup(rank, nprocs, argc, argv, &tile_dim, &tile_num, &p_dim, &node_dim, &ppn)) {
+    if (setup(rank, nprocs, argc, argv, &tile_dim, &tile_num)) {
         MPI_Finalize();
         exit(0);
     }
     elements_in_tile = tile_dim * tile_dim;
     tile_size = elements_in_tile * sizeof(double);
 
-    in_node_p_dim = p_dim / node_dim;
-    /* find my rank in the processor array from my rank in COMM_WORLD */
-    node_i = rank / (ppn * node_dim);
-    node_j = (rank / ppn) % node_dim;
-    in_node_i = (rank / in_node_p_dim) % in_node_p_dim;
-    in_node_j = rank % in_node_p_dim;
-    rank_in_parray = (node_i * ppn * node_dim) + (in_node_i * p_dim) + (node_j * in_node_p_dim) + in_node_j;
+    // in_node_p_dim = p_dim / node_dim;
+    // /* find my rank in the processor array from my rank in COMM_WORLD */
+    // node_i = rank / (ppn * node_dim);
+    // node_j = (rank / ppn) % node_dim;
+    // in_node_i = (rank / in_node_p_dim) % in_node_p_dim;
+    // in_node_j = rank % in_node_p_dim;
+    // rank_in_parray = (node_i * ppn * node_dim) + (in_node_i * p_dim) + (node_j * in_node_p_dim) + in_node_j;
 
     /* Change rank to match the logical ranks used in this application */
-    MPI_Comm_split(MPI_COMM_WORLD, 0, rank_in_parray, &comm_world);
+    MPI_Comm_split(MPI_COMM_WORLD, 0, 0, &comm_world);
     MPI_Comm_rank(comm_world, &rank);
 
 #if DEBUG

@@ -5,7 +5,7 @@
 
 #include "bspmm.h"
 #include <assert.h>
-int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *tile_num_ptr, int *p_dim_ptr, int *node_dim_ptr, int *ppn_ptr)
+int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *tile_num_ptr)
 {
     int tile_dim, tile_num, p_dim, node_dim, ppn;
 
@@ -15,18 +15,12 @@ int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *t
             printf("\n");
             printf("tile-dim:   Number of elements (double) in one dimension of a tile.\n");
             printf("tile-num:   Number of tiles in one dimension of the global matrix.\n");
-            printf("p-dim:     Number of processes in one dimension of the the process matrix.\n");
-            printf("node-dim:     Number of nodes in one dimension of the the node matrix.\n");
-            printf("ppn:     Number of processes per node.\n");
         }
         return 1;
     }
 
     tile_dim = atoi(argv[1]);   /* number of elements in one dimension of a tile */
     tile_num = atoi(argv[2]);   /* number of tiles in one dimension */
-    p_dim = atoi(argv[3]);      /* number of processes in one dimension */
-    node_dim = atoi(argv[4]);   /* number of nodes in one dimension */
-    ppn = atoi(argv[5]);        /* number of processes per node */
 
     if (tile_num % 4 != 0) {
         if (!rank)
@@ -35,9 +29,6 @@ int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *t
 
     (*tile_dim_ptr) = tile_dim;
     (*tile_num_ptr) = tile_num;
-    (*p_dim_ptr) = p_dim;
-    (*node_dim_ptr) = node_dim;
-    (*ppn_ptr) = ppn;
 
     return 0;
 }
