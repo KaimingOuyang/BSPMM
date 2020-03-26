@@ -27,8 +27,8 @@
 
 #define OFI_WINDOW_HINTS 0
 #define COMPUTE 1
-#define FINE_TIME 1
-#define WARMUP 1
+// #define FINE_TIME 1
+// #define WARMUP 1
 #define CHECK_FOR_ERRORS 0
 #define SHOW_WORKLOAD_DIST 0
 
@@ -48,8 +48,6 @@ int main(int argc, char **argv)
     size_t elements_in_tile, tile_size;
     size_t sub_mat_elements;
     int tot_non_zero_tiles, tot_tiles_per_rank;
-    int p_dim, node_dim;
-    int ppn;
     int *work_unit_table, work_units;
     double *sub_mat_a, *sub_mat_b, *sub_mat_c;
     MPI_Aint disp_a, disp_b, disp_c;
@@ -58,9 +56,7 @@ int main(int argc, char **argv)
 #endif
 
     int work_id;
-    int i, k, j;
     int prev_tile_c;
-    double *target_tile;
     double *local_a, *local_b, *local_c;
     const int one = 1;
     
@@ -86,12 +82,6 @@ int main(int argc, char **argv)
     double t1, t2;
 #endif
 
-    int in_node_p_dim;
-    int node_i, node_j;
-    int in_node_i, in_node_j;
-    int rank_in_parray;
-    MPI_Comm comm_world;
-
     /* initialize MPI environment */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -114,8 +104,8 @@ int main(int argc, char **argv)
     // rank_in_parray = (node_i * ppn * node_dim) + (in_node_i * p_dim) + (node_j * in_node_p_dim) + in_node_j;
 
     /* Change rank to match the logical ranks used in this application */
-    MPI_Comm_split(MPI_COMM_WORLD, 0, 0, &comm_world);
-    MPI_Comm_rank(comm_world, &rank);
+    // MPI_Comm_split(MPI_COMM_WORLD, 0, 0, &comm_world);
+    // MPI_Comm_rank(comm_world, &rank);
 
 #if DEBUG
     if (rank == 0) {
@@ -164,7 +154,7 @@ int main(int argc, char **argv)
 #else
                     MPI_INFO_NULL,
 #endif
-                    comm_world, &win_mem, &win);
+                    MPI_COMM_WORLD, &win_mem, &win);
 
     sub_mat_a = win_mem;
     sub_mat_b = sub_mat_a + sub_mat_elements;
@@ -182,7 +172,7 @@ int main(int argc, char **argv)
 #else   
                 MPI_INFO_NULL,
 #endif   
-                comm_world, &counter_win_mem, &win_counter);
+                MPI_COMM_WORLD, &counter_win_mem, &win_counter);
         /* initialize global counter */
         MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, MPI_MODE_NOCHECK, win_counter);
         *counter_win_mem = 0;
@@ -195,14 +185,14 @@ int main(int argc, char **argv)
 #else
                         MPI_INFO_NULL,
 #endif        
-                        comm_world, &counter_win_mem, &win_counter);
+                        MPI_COMM_WORLD, &counter_win_mem, &win_counter);
     }
 
     disp_a = 0;
     disp_b = disp_a + sub_mat_elements;
     disp_c = disp_b + sub_mat_elements;
 
-    MPI_Barrier(comm_world);
+    MPI_Barrier(MPI_COMM_WORLD);
 
     MPI_Win_lock_all(MPI_MODE_NOCHECK, win);
     MPI_Win_lock_all(MPI_MODE_NOCHECK, win_counter);
@@ -210,111 +200,6 @@ int main(int argc, char **argv)
     local_a = calloc(elements_in_tile, sizeof(double));
     local_b = calloc(elements_in_tile, sizeof(double));
     local_c = calloc(elements_in_tile, sizeof(double));
-
-#if WARMUP
-    /* Warmup */
-    MPI_Barrier(comm_world);
-    
-    prev_tile_c = -1; 
-    do {
-        /* read and increment global counter atomically */
-        MPI_Fetch_and_op(&one, &work_id, MPI_INT, 0, 0, MPI_SUM, win_counter);
-        MPI_Win_flush(0, win_counter);
-        if (work_id >= work_units)
-            break;
-
-        int global_tile_c = work_unit_table[work_id * 3 + 2];
-        if (global_tile_c != prev_tile_c && prev_tile_c >= 0) {
-            /* MPI_Accumulate locally accumulated C before proceeding */
-            int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
-            MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);
-#ifndef NO_ACC  
-            /* accumulate tile C (always use MPI since we need to ensure atomicity during accumulation) */
-            MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
-                           MPI_DOUBLE, MPI_SUM, win);
-            MPI_Win_flush(target_rank_c, win);
-#endif
-            
-            /* Reset the local C tile for local accumulation */
-            memset(local_c, 0, tile_size);
-        } 
-        prev_tile_c = global_tile_c;
-
-        /* calculate target rank from the work_id for A */
-        int global_tile_a = work_unit_table[work_id * 3 + 0];
-        int target_rank_a = target_rank_of_tile(global_tile_a, nprocs);
-        MPI_Aint target_offset_a = offset_of_tile(global_tile_a, nprocs, tile_dim); 
-
-        /* Obtain tile A */
-        if (target_rank_a == rank) {
-            /* Copy tile A from local memory */
-            target_tile = &sub_mat_a[(int) target_offset_a];
-            for (i = 0; i < tile_dim; i++)
-                for (k = 0; k < tile_dim; k++)
-                    local_a[i*tile_dim + k] = target_tile[i*tile_dim + k];
-        } else {
-            /* get tile A */
-            MPI_Get(local_a, elements_in_tile, MPI_DOUBLE, target_rank_a, disp_a + target_offset_a, elements_in_tile, MPI_DOUBLE, win);
-            MPI_Win_flush(target_rank_a, win);
-        }
-
-        /* calculate target rank from the work_id for B */
-        int global_tile_b = work_unit_table[work_id * 3 + 1];
-        int target_rank_b = target_rank_of_tile(global_tile_b, nprocs);
-        MPI_Aint target_offset_b = offset_of_tile(global_tile_b, nprocs, tile_dim); 
-
-        /* Obtain tile B */
-        if (target_rank_b == rank) {
-            /* Copy tile B from local memory */
-            target_tile = &sub_mat_b[(int) target_offset_b];
-            for (k = 0; k < tile_dim; k++)
-                for (j = 0; j < tile_dim; j++)
-                    local_b[k*tile_dim + j] = target_tile[k*tile_dim + j];
-        } else {
-            /* get tile B */
-            MPI_Get(local_b, elements_in_tile, MPI_DOUBLE, target_rank_b, disp_b + target_offset_b, elements_in_tile, MPI_DOUBLE,
-                    win);
-            MPI_Win_flush(target_rank_b, win);
-        }
-        
-        /* compute Cij += Aik * Bkj */
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tile_dim, tile_dim, tile_dim, 1.0, local_a, tile_dim, local_b, tile_dim, 1.0, local_c, tile_dim);
-    
-    } while (work_id < work_units);
-
-    if (prev_tile_c >= 0) {
-        /* MPI_Accumulate locally accumulated C before finishing */
-        int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
-        MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);
-#ifndef NO_ACC         
-        /* accumulate tile C (always use MPI since we need to ensure atomicity during accumulation) */
-        MPI_Accumulate(local_c, elements_in_tile, MPI_DOUBLE, target_rank_c, disp_c + target_offset_c, elements_in_tile,
-                   MPI_DOUBLE, MPI_SUM, win);
-        MPI_Win_flush(target_rank_c, win);
-#endif
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    
-    MPI_Win_unlock_all(win);
-    MPI_Win_unlock_all(win_counter);
-
-    memset(local_c, 0, tile_size);
-    
-    MPI_Win_lock(MPI_LOCK_EXCLUSIVE, rank, MPI_MODE_NOCHECK, win);
-    init_sub_mats(sub_mat_a, sub_mat_b, sub_mat_c, sub_mat_elements);
-    MPI_Win_unlock(rank, win);
-
-    if (rank == 0) {
-        /* re-initialize global counter */
-        MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, MPI_MODE_NOCHECK, win_counter);
-        *counter_win_mem = 0;
-        MPI_Win_unlock(0, win_counter); 
-    }
-    
-    MPI_Win_lock_all(MPI_MODE_NOCHECK, win);
-    MPI_Win_lock_all(MPI_MODE_NOCHECK, win_counter);
-#endif
 
     MPI_Barrier(MPI_COMM_WORLD);
     /* Benchmark */
@@ -324,7 +209,7 @@ int main(int argc, char **argv)
     my_work_counter = 0;
 #endif
 
-    MPI_Barrier(comm_world);
+    MPI_Barrier(MPI_COMM_WORLD);
 #if FINE_TIME
     t_get = t_accum = 0;
     t_get_flush = t_accum_flush = 0;
@@ -386,64 +271,41 @@ int main(int argc, char **argv)
         MPI_Aint target_offset_a = offset_of_tile(global_tile_a, nprocs, tile_dim); 
 
         /* Obtain tile A */
-        if (target_rank_a == rank) {
-            /* Copy tile A from local memory */
-            target_tile = &sub_mat_a[(int) target_offset_a];
-            for (i = 0; i < tile_dim; i++)
-                for (k = 0; k < tile_dim; k++)
-                    local_a[i*tile_dim + k] = target_tile[i*tile_dim + k];
-        } else {
-#if DEBUG
-            //printf("Rank %d trying to get A tile %d from rank %d\n", rank, global_tile_a, target_rank_a);
-#endif
-            /* get tile A */
 #if FINE_TIME
-            get_counter++;
-            t_start = MPI_Wtime();
+        get_counter++;
+        t_start = MPI_Wtime();
 #endif
-            MPI_Get(local_a, elements_in_tile, MPI_DOUBLE, target_rank_a, disp_a + target_offset_a, elements_in_tile, MPI_DOUBLE, win);
+        MPI_Get(local_a, elements_in_tile, MPI_DOUBLE, target_rank_a, disp_a + target_offset_a, elements_in_tile, MPI_DOUBLE, win);
 #if FINE_TIME
-            t_get += (MPI_Wtime() - t_start);
-            t_start = MPI_Wtime();
+        t_get += (MPI_Wtime() - t_start);
+        t_start = MPI_Wtime();
 #endif
-            MPI_Win_flush(target_rank_a, win);
+        MPI_Win_flush(target_rank_a, win);
 #if FINE_TIME
-            t_get_flush += (MPI_Wtime() - t_start);
+        t_get_flush += (MPI_Wtime() - t_start);
 #endif       
-        }
-
+        
         /* calculate target rank from the work_id for B */
         int global_tile_b = work_unit_table[work_id * 3 + 1];
         int target_rank_b = target_rank_of_tile(global_tile_b, nprocs);
         MPI_Aint target_offset_b = offset_of_tile(global_tile_b, nprocs, tile_dim); 
 
         /* Obtain tile B */
-        if (target_rank_b == rank) {
-            /* Copy tile B from local memory */
-            target_tile = &sub_mat_b[(int) target_offset_b];
-            for (k = 0; k < tile_dim; k++)
-                for (j = 0; j < tile_dim; j++)
-                    local_b[k*tile_dim + j] = target_tile[k*tile_dim + j];
-        } else {
-            /* get tile B */
-#if DEBUG
-            //printf("Rank %d trying to get B tile %d from rank %d\n", rank, global_tile_b, target_rank_b);
-#endif
 #if FINE_TIME
-            get_counter++;
-            t_start = MPI_Wtime();
+        get_counter++;
+        t_start = MPI_Wtime();
 #endif
-            MPI_Get(local_b, elements_in_tile, MPI_DOUBLE, target_rank_b, disp_b + target_offset_b, elements_in_tile, MPI_DOUBLE,
-                    win);
- #if FINE_TIME
-            t_get += (MPI_Wtime() - t_start);
-            t_start = MPI_Wtime();
-#endif 
-            MPI_Win_flush(target_rank_b, win);
+        MPI_Get(local_b, elements_in_tile, MPI_DOUBLE, target_rank_b, disp_b + target_offset_b, elements_in_tile, MPI_DOUBLE,
+        win);
 #if FINE_TIME
-            t_get_flush += (MPI_Wtime() - t_start);
+        t_get += (MPI_Wtime() - t_start);
+        t_start = MPI_Wtime();
 #endif
-        }
+        MPI_Win_flush(target_rank_b, win);
+#if FINE_TIME
+        t_get_flush += (MPI_Wtime() - t_start);
+#endif
+
 #if COMPUTE
         /* compute Cij += Aik * Bkj */
         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tile_dim, tile_dim, tile_dim, 1.0, local_a, tile_dim, local_b, tile_dim, 1.0, local_c, tile_dim);
@@ -510,14 +372,14 @@ int main(int argc, char **argv)
         }
     } else
         t_get_procs = t_accum_procs = t_get_flush_procs = t_accum_flush_procs = NULL;
-    MPI_Gather(&t_per_get, 1, MPI_DOUBLE, t_get_procs, 1, MPI_DOUBLE, 0, comm_world);
-    MPI_Gather(&t_per_get_flush, 1, MPI_DOUBLE, t_get_flush_procs, 1, MPI_DOUBLE, 0, comm_world);
-    MPI_Gather(&t_per_accum, 1, MPI_DOUBLE, t_accum_procs, 1, MPI_DOUBLE, 0, comm_world);
-    MPI_Gather(&t_per_accum_flush, 1, MPI_DOUBLE, t_accum_flush_procs, 1, MPI_DOUBLE, 0, comm_world);
+    MPI_Gather(&t_per_get, 1, MPI_DOUBLE, t_get_procs, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&t_per_get_flush, 1, MPI_DOUBLE, t_get_flush_procs, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&t_per_accum, 1, MPI_DOUBLE, t_accum_procs, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&t_per_accum_flush, 1, MPI_DOUBLE, t_accum_flush_procs, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     tot_get_count = tot_accum_count = 0;
-    MPI_Reduce(&get_counter, &tot_get_count, 1, MPI_INT, MPI_SUM, 0, comm_world);
-    MPI_Reduce(&accum_counter, &tot_accum_count, 1, MPI_INT, MPI_SUM, 0, comm_world);
+    MPI_Reduce(&get_counter, &tot_get_count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&accum_counter, &tot_accum_count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     
     min_t_get = max_t_get = mean_t_get = 0;
     min_t_accum = max_t_accum = mean_t_accum = 0;
@@ -585,7 +447,7 @@ int main(int argc, char **argv)
         alt_rank = NULL;
     }
 
-    MPI_Gather(&my_work_counter, 1, MPI_INT, all_worker_counter, 1, MPI_INT, 0, comm_world);
+    MPI_Gather(&my_work_counter, 1, MPI_INT, all_worker_counter, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Gather(&rank, 1, MPI_INT, alt_rank, 1, MPI_INT, 0, MPI_COMM_WORLD);
 #endif
 
@@ -599,23 +461,25 @@ int main(int argc, char **argv)
         }
         printf("\n");
 #endif
-#if FINE_TIME
+
+#ifdef FINE_TIME
         /* Each of the times reported are per operation */
-        printf("%d %.6lf\n", tile_dim, total_time);
-        // printf("mat_dim,tile_dim,work_units,nworkers,"
-        //         "min_get_time,max_get_time,mean_get_time,"
-        //         "min_accum_time,max_accum_time,mean_accum_time,"
-        //         "min_get_flush_time,max_get_flush_time,mean_get_flush_time,"
-        //         "min_accum_flush_time,max_accum_flush_time,mean_accum_flush_time\n");
-        // printf("%d,%d,%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f\n", mat_dim, tile_dim, work_units, nprocs,
-        //         min_t_get, max_t_get, mean_t_get,
-        //         min_t_accum, max_t_accum, mean_t_accum,
-        //         min_t_get_flush, max_t_get_flush, mean_t_get_flush,
-        //         min_t_accum_flush, max_t_accum_flush, mean_t_accum_flush);
+        printf("FINE_TIME %d %.6lf\n", tile_dim, total_time);
+        printf("mat_dim,tile_dim,work_units,nworkers,"
+                "min_get_time,max_get_time,mean_get_time,"
+                "min_accum_time,max_accum_time,mean_accum_time,"
+                "min_get_flush_time,max_get_flush_time,mean_get_flush_time,"
+                "min_accum_flush_time,max_accum_flush_time,mean_accum_flush_time\n");
+        printf("%d,%d,%d,%d,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f,%.9f\n", mat_dim, tile_dim, work_units, nprocs,
+                min_t_get, max_t_get, mean_t_get,
+                min_t_accum, max_t_accum, mean_t_accum,
+                min_t_get_flush, max_t_get_flush, mean_t_get_flush,
+                min_t_accum_flush, max_t_accum_flush, mean_t_accum_flush);
 #else
         /* This time is the time for the whole kernel i.e. the observed time by the end user of the application */
-        printf("mat_dim,tile_dim,work_units,nworkers,time\n");
-        printf("%d,%d,%d,%d,%.9f\n", mat_dim, tile_dim, work_units, nprocs, t2 - t1);
+        printf("%d %.6lf\n", nprocs, total_time);
+        // printf("mat_dim,tile_dim,work_units,nworkers,time\n");
+        // printf("%d,%d,%d,%d,%.9f\n", mat_dim, tile_dim, work_units, nprocs, t2 - t1);
 #endif
     }
 
@@ -712,7 +576,6 @@ int main(int argc, char **argv)
 
     MPI_Win_free(&win_counter);
     MPI_Win_free(&win);
-    MPI_Comm_free(&comm_world);
 
 #if OFI_WINDOW_HINTS
     MPI_Info_free(&win_info);

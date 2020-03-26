@@ -7,7 +7,7 @@
 #include <assert.h>
 int setup(int rank, int nprocs, int argc, char **argv, int *tile_dim_ptr, int *tile_num_ptr)
 {
-    int tile_dim, tile_num, p_dim, node_dim, ppn;
+    int tile_dim, tile_num;
 
     if (argc != 3) {
         if (!rank) {
