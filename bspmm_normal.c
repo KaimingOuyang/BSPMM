@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 #endif
 
         int global_tile_c = work_unit_table[work_id * 3 + 2];
-        if (global_tile_c != prev_tile_c && prev_tile_c >= 0) {
+        if (prev_tile_c >= 0) {
             /* MPI_Accumulate locally accumulated C before proceeding */
             int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
             MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);

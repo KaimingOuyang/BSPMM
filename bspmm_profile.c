@@ -241,7 +241,7 @@ int main(int argc, char **argv)
 #endif
 
         int global_tile_c = work_unit_table[work_id * 3 + 2];
-        if (global_tile_c != prev_tile_c && prev_tile_c >= 0) {
+        if (prev_tile_c >= 0) {
             /* MPI_Accumulate locally accumulated C before proceeding */
             int target_rank_c = target_rank_of_tile(prev_tile_c, nprocs);
             MPI_Aint target_offset_c = offset_of_tile(prev_tile_c, nprocs, tile_dim);
@@ -415,9 +415,9 @@ int main(int argc, char **argv)
     MPI_Reduce(&dgemm_time, &max_dgemm_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if(rank == 0){
-        printf("proc %d avg - fop %.3lf, acc %.3lf, get_a %.3lf, get_b %.3lf, get %.3lf, dgemm %.3lf\n", nprocs, avg_fop_time, avg_acc_time, avg_get_a_time, avg_get_b_time, avg_get_time, avg_dgemm_time);
-        printf("proc %d min - fop %.3lf, acc %.3lf, get_a %.3lf, get_b %.3lf, get %.3lf, dgemm %.3lf\n", nprocs, min_fop_time, min_acc_time, min_get_a_time, min_get_b_time, min_get_time, min_dgemm_time);
-        printf("proc %d max - fop %.3lf, acc %.3lf, get_a %.3lf, get_b %.3lf, get %.3lf, dgemm %.3lf\n", nprocs, max_fop_time, max_acc_time, max_get_a_time, max_get_b_time, max_get_time, max_dgemm_time);
+        printf("proc %d avg - fop %.3lf acc %.3lf get %.3lf dgemm %.3lf total %.3lf\n", nprocs, avg_fop_time, avg_acc_time, avg_get_time, avg_dgemm_time, total_time);
+        // printf("proc %d min - fop %.3lf acc %.3lf get_a %.3lf, get_b %.3lf, get %.3lf, dgemm %.3lf\n", nprocs, min_fop_time, min_acc_time, min_get_a_time, min_get_b_time, min_get_time, min_dgemm_time);
+        printf("proc %d max - fop %.3lf acc %.3lf get %.3lf dgemm %.3lf total %.3lf\n", nprocs, max_fop_time, max_acc_time, max_get_time, max_dgemm_time, total_time);
         fflush(stdout);
     }
     
