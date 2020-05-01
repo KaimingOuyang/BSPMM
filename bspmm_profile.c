@@ -417,7 +417,7 @@ int main(int argc, char **argv)
     if(rank == 0){
         printf("proc %d avg - fop %.3lf acc %.3lf get %.3lf dgemm %.3lf total %.3lf\n", nprocs, avg_fop_time, avg_acc_time, avg_get_time, avg_dgemm_time, total_time);
         // printf("proc %d min - fop %.3lf acc %.3lf get_a %.3lf, get_b %.3lf, get %.3lf, dgemm %.3lf\n", nprocs, min_fop_time, min_acc_time, min_get_a_time, min_get_b_time, min_get_time, min_dgemm_time);
-        printf("proc %d max - fop %.3lf acc %.3lf get %.3lf dgemm %.3lf total %.3lf\n", nprocs, max_fop_time, max_acc_time, max_get_time, max_dgemm_time, total_time);
+        //printf("proc %d max - fop %.3lf acc %.3lf get %.3lf dgemm %.3lf total %.3lf\n", nprocs, max_fop_time, max_acc_time, max_get_time, max_dgemm_time, total_time);
         fflush(stdout);
     }
     
