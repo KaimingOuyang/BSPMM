@@ -160,7 +160,7 @@ void init_work_unit_table(int *tile_map_a, int *tile_map_b, int *tile_map_c, int
 
 void init_sub_mats(double *sub_mat_a, double *sub_mat_b, double *sub_mat_c, size_t sub_mat_elements)
 {
-    int element_i;
+    size_t element_i;
 
     for (element_i = 0; element_i < sub_mat_elements; element_i++) {
         sub_mat_a[element_i] = 1;
